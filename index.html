@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base href="/excelenc.ia/">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Excelenc.IA — conversor inteligente de imagens e PDFs para Excel.">
+  <meta name="theme-color" content="#0A2342">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Excelenc.IA">
+
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Excelenc.IA</title>
+
+  <script>
+    // Carrega o OCR apenas no primeiro uso. Assim, uma falha no CDN nunca
+    // impede o Flutter de iniciar e evita a tela branca no Chrome/Pages.
+    let tesseractLoader;
+
+    function loadTesseract() {
+      if (window.Tesseract) return Promise.resolve(window.Tesseract);
+      if (tesseractLoader) return tesseractLoader;
+
+      tesseractLoader = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js';
+        script.crossOrigin = 'anonymous';
+        script.onload = () => resolve(window.Tesseract);
+        script.onerror = () => {
+          tesseractLoader = null;
+          reject(new Error('Não foi possível carregar o mecanismo OCR. Verifique a internet e tente novamente.'));
+        };
+        document.head.appendChild(script);
+      });
+
+      return tesseractLoader;
+    }
+
+    window._extractText = async function (imagePath, mapData) {
+      const Tesseract = await loadTesseract();
+      const options = mapData || {};
+      const language = options.language || 'eng';
+      const parameters = options.args || {};
+      let worker;
+
+      try {
+        worker = await Tesseract.createWorker();
+        await worker.load();
+        await worker.loadLanguage(language);
+        await worker.initialize(language);
+        await worker.setParameters(parameters);
+
+        const result = await worker.recognize(imagePath);
+        if (parameters.tessjs_create_hocr) {
+          return result.data.hocr || '';
+        }
+        return result.data.text || '';
+      } finally {
+        if (worker) await worker.terminate();
+      }
+    };
+
+    window.addEventListener('error', (event) => {
+      console.error('Erro ao iniciar o Excelenc.IA:', event.error || event.message);
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Falha assíncrona no Excelenc.IA:', event.reason);
+    });
+  </script>
+</head>
+<body>
+  <noscript>Ative o JavaScript para usar o Excelenc.IA.</noscript>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
