@@ -18,6 +18,25 @@
   <link rel="manifest" href="manifest.json">
   <title>Excelenc.IA</title>
 
+  <!-- PDF.js exigido pelo pdfx no Flutter Web. Deve ser carregado antes do
+       flutter_bootstrap.js para que PdfDocument.openData funcione. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      window.pdfRenderOptions = {
+        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl:
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/'
+      };
+    } else {
+      console.error('PDF.js não foi carregado. A abertura de PDFs ficará indisponível.');
+    }
+  </script>
+
   <script>
     // Carrega o OCR apenas no primeiro uso. Assim, uma falha no CDN nunca
     // impede o Flutter de iniciar e evita a tela branca no Chrome/Pages.
