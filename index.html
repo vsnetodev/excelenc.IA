@@ -85,6 +85,78 @@
       }
     };
 
+    // Reconhecimento principal: a IA recebe a página inteira e devolve uma
+    // matriz, preservando a relação entre linhas, colunas e células largas.
+    // A chave é informada pelo usuário e nunca faz parte do build publicado.
+    window.excelenciaRecognizeTable = async function (apiKey, imageBase64, mimeType) {
+      const endpoint =
+        'https://generativelanguage.googleapis.com/v1beta/models/' +
+        'gemini-2.5-flash:generateContent';
+      const prompt = `
+Você é um mecanismo de digitalização de planilhas. Transcreva SOMENTE a tabela
+visível na imagem para uma matriz retangular.
+
+REGRAS OBRIGATÓRIAS:
+- conte as colunas pelas divisórias reais da grade, nunca pelo espaçamento do texto;
+- conte todas as linhas da grade, inclusive linhas parcialmente vazias;
+- mantenha cada conteúdo na célula física em que aparece;
+- uma célula larga continua sendo UMA célula; nunca divida sua frase;
+- preserve cabeçalhos, acentos, códigos, sinais, vírgulas e pontos decimais;
+- use string vazia para célula vazia;
+- não invente, complete ou corrija valores ilegíveis: use "[ilegível]";
+- todas as linhas devem ter exatamente column_count células;
+- ignore textos, manchas e marcas fora da tabela.
+`;
+      const body = {
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType || 'image/png', data: imageBase64 } }
+        ] }],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            required: ['column_count', 'rows'],
+            properties: {
+              column_count: { type: 'INTEGER', minimum: 1, maximum: 100 },
+              rows: {
+                type: 'ARRAY',
+                maxItems: 300,
+                items: {
+                  type: 'OBJECT',
+                  required: ['cells'],
+                  properties: {
+                    cells: {
+                      type: 'ARRAY',
+                      maxItems: 100,
+                      items: { type: 'STRING' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        body: JSON.stringify(body)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = payload?.error?.message || `Erro HTTP ${response.status}`;
+        throw new Error(message);
+      }
+      const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error('A IA não retornou uma tabela.');
+      return text;
+    };
+
     window.addEventListener('error', (event) => {
       console.error('Erro ao iniciar o Excelenc.IA:', event.error || event.message);
     });
